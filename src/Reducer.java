@@ -8,14 +8,10 @@ public class Reducer {
     private static final String DEFAULT_COORDINATOR_ADDRESS = "localhost"; // Endereço padrão
 
     public static void main(String[] args) {
-        //if (args.length != 2) {
-         //   System.out.println("Usage: Reducer <CoordinatorAddress> <CoordinatorPort>");
-          //  return;
-        //}
+        
         String coordinatorAddress = DEFAULT_COORDINATOR_ADDRESS;
         int coordinatorPort = DEFAULT_COORDINATOR_PORT;
-        //String coordinatorAddress = args[0];
-        //int coordinatorPort = Integer.parseInt(args[1]);
+    
         // Se argumentos forem passados, use-os para configurar o endereço e a porta do Coordinator
         if (args.length == 2) {
             coordinatorAddress = args[0];
