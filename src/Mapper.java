@@ -7,20 +7,19 @@ import java.util.regex.*;
 
 public class Mapper {
     public static void main(String[] args) {
-        if (args.length != 2) {
-            System.out.println("Usage: Mapper <file> <CoordinatorAddress>");
+        if (args.length != 1) {
+            System.out.println("Usage: Mapper <file>");
             return;
         }
 
         String fileName = args[0];
-        String coordinatorAddress = args[1];
 
-        try (Socket socket = new Socket(coordinatorAddress, 9999);
+        String coordinatorAddress = "localhost";
+        Integer coordinatorPort = 3000;
+
+        try (Socket socket = new Socket(coordinatorAddress, coordinatorPort);
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                 BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
-
-            // Send file name to Coordinator
-            out.println(fileName);
 
             String line;
             Map<String, WordCount> wordCounts = new HashMap<>();
