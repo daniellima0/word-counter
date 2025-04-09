@@ -4,7 +4,8 @@ import java.net.*;
 import java.util.*;
 
 public class Reducer {
-    private static final int DEFAULT_COORDINATOR_PORT = 5001; // Porta padrão
+    //private static final int DEFAULT_COORDINATOR_PORT = 5001; // to coordinator
+    private static final int DEFAULT_COORDINATOR_PORT = 9999; // to mock
     private static final String DEFAULT_COORDINATOR_ADDRESS = "localhost"; // Endereço padrão
 
     public static void main(String[] args) {

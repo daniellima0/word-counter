@@ -8,9 +8,10 @@ public class Coordinator {
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
 
+    
     public static void main(String[] args) {
         int numberOfMaps = 3;
-        int numberOfReduces = 1;
+        int numberOfReduces = 2;
 
         // If arguments are provided, the values will be overwritten
         if (args.length == 2) {
@@ -60,18 +61,34 @@ public class Coordinator {
 
                 // Enviar os dados dos mappers para o reducer
                 PrintWriter out = new PrintWriter(reduceSocket.getOutputStream(), true);
+
                 // Distribuindo os dados de forma balanceada para os reducers
                 for (Map<String, Integer> wordCount : mapperResults) {
                     for (Map.Entry<String, Integer> entry : wordCount.entrySet()) {
-                        out.println(entry.getKey() + ":" + entry.getValue());
+                        String word = entry.getKey();
+                        int count = entry.getValue();
+                        int reducerIndex = customHash(word, numberOfReduces);
+                        
+                    // Enviar a palavra para o reducer correto
+                    if (reducerIndex == i) {
+                        out.println(word + ":" + count);
                     }
                 }
-
-                reduceSocket.close();
             }
 
-        } catch (IOException e) {
-            e.printStackTrace();
+            reduceSocket.close();
         }
+
+    } catch (IOException e) {
+        e.printStackTrace();
     }
+}
+// hash
+public static int customHash(String word, int numberOfReduces) {
+    int hash = 0;
+    for (int i = 0; i < word.length(); i++) {
+        hash = 31 * hash + word.charAt(i);
+    }
+    return Math.abs(hash % numberOfReduces);
+}
 }
