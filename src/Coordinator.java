@@ -4,9 +4,10 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class Coordinator {
-    private static final int MAP_PORT = 3000;
-    private static final int REDUCE_PORT = 5000;
+    private static final int MAP_PORT = 3001;
+    private static final int REDUCE_PORT = 5001;
 
+    
     public static void main(String[] args) {
         if (args.length != 3) {
             System.out.println("Usage: Coordinator <filepath> <numberOfMaps> <numberOfReduces>");
@@ -66,6 +67,9 @@ public class Coordinator {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+
+    } catch (IOException e) {
+        e.printStackTrace();
     }
 
     static class MapperHandler implements Runnable {
@@ -130,4 +134,13 @@ public class Coordinator {
             }
         }
     }
+}
+// hash
+public static int customHash(String word, int numberOfReduces) {
+    int hash = 0;
+    for (int i = 0; i < word.length(); i++) {
+        hash = 31 * hash + word.charAt(i);
+    }
+    return Math.abs(hash % numberOfReduces);
+}
 }
