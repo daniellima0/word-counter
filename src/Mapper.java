@@ -6,7 +6,7 @@ import java.util.regex.*;
 public class Mapper {
     public static void main(String[] args) {
         String coordinatorAddress = "localhost";
-        Integer coordinatorPort = 3000;
+        Integer coordinatorPort = 3001;
 
         try (Socket socket = new Socket(coordinatorAddress, coordinatorPort);
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);

@@ -7,7 +7,6 @@ public class Coordinator {
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
 
-    
     public static void main(String[] args) {
         if (args.length != 3) {
             System.out.println("Usage: Coordinator <filepath> <numberOfMaps> <numberOfReduces>");
@@ -50,13 +49,19 @@ public class Coordinator {
                 System.out.println(entry.getKey() + ": " + entry.getValue());
             }
 
-            // Simulate reducer connections
+            // Accept Reducer connections and send them data
             for (int i = 0; i < numberOfReduces; i++) {
                 System.out.println("Coordinator: Waiting for Reducer " + i);
                 Socket reduceSocket = reduceServerSocket.accept();
                 System.out.println("Coordinator: Reducer " + i + " connected");
 
                 PrintWriter out = new PrintWriter(reduceSocket.getOutputStream(), true);
+
+                // Send reducer ID and total reducers
+                out.println(i); // reducerId
+                out.println(numberOfReduces);
+
+                // Send all word counts
                 for (Map.Entry<String, Integer> entry : wordCounts.entrySet()) {
                     out.println(entry.getKey() + ":" + entry.getValue());
                 }
@@ -67,9 +72,6 @@ public class Coordinator {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-
-    } catch (IOException e) {
-        e.printStackTrace();
     }
 
     static class MapperHandler implements Runnable {
@@ -134,13 +136,12 @@ public class Coordinator {
             }
         }
     }
-}
-// hash
-public static int customHash(String word, int numberOfReduces) {
-    int hash = 0;
-    for (int i = 0; i < word.length(); i++) {
-        hash = 31 * hash + word.charAt(i);
+
+    public static int customHash(String word, int numberOfReduces) {
+        int hash = 0;
+        for (int i = 0; i < word.length(); i++) {
+            hash = 31 * hash + word.charAt(i);
+        }
+        return Math.abs(hash % numberOfReduces);
     }
-    return Math.abs(hash % numberOfReduces);
-}
 }

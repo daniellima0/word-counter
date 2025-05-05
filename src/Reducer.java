@@ -1,38 +1,31 @@
+
 // Reducer.java
 import java.io.*;
 import java.net.*;
 import java.util.*;
 
 public class Reducer {
-    //private static final int DEFAULT_COORDINATOR_PORT = 5001; // to coordinator
-    private static final int DEFAULT_COORDINATOR_PORT = 9999; // to mock
-    private static final String DEFAULT_COORDINATOR_ADDRESS = "localhost"; // Endereço padrão
+    private static final String DEFAULT_COORDINATOR_ADDRESS = "localhost";
+    private static final int DEFAULT_COORDINATOR_PORT = 5001;
 
     public static void main(String[] args) {
-        
         String coordinatorAddress = DEFAULT_COORDINATOR_ADDRESS;
         int coordinatorPort = DEFAULT_COORDINATOR_PORT;
-        int reducerId = 0;
-        int numberOfReducers = 1;
-    
-         // Espera-se: Reducer <CoordinatorAddress> <CoordinatorPort> <ReducerId> <NumReducers>
-         if (args.length == 4) {
-            coordinatorAddress = args[0];
-            coordinatorPort = Integer.parseInt(args[1]);
-            reducerId = Integer.parseInt(args[2]);
-            numberOfReducers = Integer.parseInt(args[3]);
-        } else {
-            System.out.println("Usage: Reducer <CoordinatorAddress> <CoordinatorPort> <ReducerId> <NumReducers>");
-            return;
-        }
 
-        // Cria a conexão com o coordinator e lê os dados
-        try (Socket socket = new Socket(coordinatorAddress, coordinatorPort);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
-             ) {
+        int reducerId;
+        int numberOfReducers;
 
-            System.out.println("Reducer " + reducerId + " connected to Coordinator at " + coordinatorAddress + ":" + coordinatorPort);
-            
+        try (
+                Socket socket = new Socket(coordinatorAddress, coordinatorPort);
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+            // Receive ID and total number of reducers from Coordinator
+            reducerId = Integer.parseInt(in.readLine());
+            numberOfReducers = Integer.parseInt(in.readLine());
+
+            System.out.println("Reducer " + reducerId + " connected to Coordinator at " + coordinatorAddress + ":"
+                    + coordinatorPort);
+
             Map<String, Integer> aggregatedResults = new HashMap<>();
             String line;
 
