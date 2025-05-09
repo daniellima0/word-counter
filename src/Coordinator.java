@@ -142,6 +142,7 @@ public class Coordinator {
                 System.err.println("MapperHandler (Mapper " + mapperId + ") error: " + e.getMessage());
             }
         }
+    
     }
 
     public static int customHash(String word, int numberOfReduces) {
