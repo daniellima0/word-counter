@@ -21,51 +21,45 @@ public class Coordinator {
         long fileSize = file.length();
         long chunkSize = fileSize / numberOfMaps;
 
-        ConcurrentHashMap<String, Integer> wordCounts = new ConcurrentHashMap<>();
+        // Partitioned data per reducer
+        Map<Integer, List<String>> partitionedData = new ConcurrentHashMap<>();
+        for (int i = 0; i < numberOfReduces; i++) {
+            partitionedData.put(i, Collections.synchronizedList(new ArrayList<>()));
+        }
 
         ExecutorService executor = Executors.newFixedThreadPool(numberOfMaps);
 
         try (
                 ServerSocket mapServerSocket = new ServerSocket(MAP_PORT);
-                ServerSocket reduceServerSocket = new ServerSocket(REDUCE_PORT);) {
+                ServerSocket reduceServerSocket = new ServerSocket(REDUCE_PORT)) {
             System.out.println("Coordinator: Waiting for Mappers to connect...");
 
-            // Asynchronously send data to all mappers
             for (int i = 0; i < numberOfMaps; i++) {
                 Socket mapperSocket = mapServerSocket.accept();
                 long startByte = i * chunkSize;
                 long endByte = (i == numberOfMaps - 1) ? fileSize : (i + 1) * chunkSize;
 
-                // Execute each mapper handler asynchronously
-                executor.execute(new MapperHandler(mapperSocket, fileName, startByte, endByte, wordCounts, i));
+                executor.execute(new MapperHandler(mapperSocket, fileName, startByte, endByte, partitionedData,
+                        numberOfReduces, i));
             }
 
-            executor.shutdown(); // No more tasks will be submitted to the executor
-            executor.awaitTermination(5, TimeUnit.MINUTES); // Wait for all mapper tasks to finish
+            executor.shutdown();
+            executor.awaitTermination(5, TimeUnit.MINUTES);
 
-            // Display aggregated results
-            System.out.println("Coordinator: Aggregated word counts:");
-            for (Map.Entry<String, Integer> entry : wordCounts.entrySet()) {
-                System.out.println(entry.getKey() + ": " + entry.getValue());
-            }
-
-            // Accept Reducer connections and send them data
+            // Send data to reducers
             for (int i = 0; i < numberOfReduces; i++) {
                 System.out.println("Coordinator: Waiting for Reducer " + i);
                 Socket reduceSocket = reduceServerSocket.accept();
-                System.out.println("Coordinator: Reducer " + i + " connected");
-
                 PrintWriter out = new PrintWriter(reduceSocket.getOutputStream(), true);
 
-                // Send reducer ID and total reducers
-                out.println(i); // reducerId
+                out.println(i); // reducer ID
                 out.println(numberOfReduces);
 
-                // Send all word counts
-                for (Map.Entry<String, Integer> entry : wordCounts.entrySet()) {
-                    out.println(entry.getKey() + ":" + entry.getValue());
+                for (String pair : partitionedData.get(i)) {
+                    out.println(pair);
                 }
 
+                out.println("<<END>>");
                 reduceSocket.close();
             }
 
@@ -78,16 +72,18 @@ public class Coordinator {
         private Socket socket;
         private String fileName;
         private long startByte, endByte;
-        private ConcurrentHashMap<String, Integer> wordCounts;
+        private Map<Integer, List<String>> partitionedData;
+        private int numberOfReduces;
         private int mapperId;
 
         public MapperHandler(Socket socket, String fileName, long startByte, long endByte,
-                ConcurrentHashMap<String, Integer> wordCounts, int mapperId) {
+                Map<Integer, List<String>> partitionedData, int numberOfReduces, int mapperId) {
             this.socket = socket;
             this.fileName = fileName;
             this.startByte = startByte;
             this.endByte = endByte;
-            this.wordCounts = wordCounts;
+            this.partitionedData = partitionedData;
+            this.numberOfReduces = numberOfReduces;
             this.mapperId = mapperId;
         }
 
@@ -97,12 +93,9 @@ public class Coordinator {
                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                     BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     RandomAccessFile raf = new RandomAccessFile(fileName, "r")) {
-
                 System.out.println("Coordinator: Sending chunk to Mapper " + mapperId);
 
-                // Position the file pointer
                 raf.seek(startByte);
-
                 long bytesSent = 0;
                 while (bytesSent < (endByte - startByte)) {
                     String line = raf.readLine();
@@ -111,9 +104,9 @@ public class Coordinator {
                     out.println(line);
                     bytesSent += line.getBytes().length;
                 }
-                out.println("<<END>>"); // signal end of data
+                out.println("<<END>>");
 
-                // Receive results from Mapper
+                // Collect raw word:1 pairs and partition
                 String line;
                 while ((line = in.readLine()) != null) {
                     if (line.trim().isEmpty())
@@ -123,9 +116,11 @@ public class Coordinator {
                         continue;
 
                     String word = parts[0];
-                    int count = Integer.parseInt(parts[1]);
+                    int reducerId = customHash(word, numberOfReduces);
+                    partitionedData.get(reducerId).add(line);
 
-                    wordCounts.merge(word, count, Integer::sum);
+                    // 👇 Log mapper output
+                    System.out.println("Mapper " + mapperId + " emitted: " + line + " (to reducer " + reducerId + ")");
                 }
 
                 socket.close();
