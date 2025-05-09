@@ -3,7 +3,7 @@ import java.io.IOException;
 public class Launcher {
     public static void main(String[] args) {
         if (args.length != 2) {
-            System.out.println("Uso: java Launcher <numMappers> <numReducers>");
+            System.out.println("Usage: java Launcher <numMappers> <numReducers>");
             return;
         }
 
@@ -11,24 +11,24 @@ public class Launcher {
         int numReducers = Integer.parseInt(args[1]);
 
         try {
-            // 1. Iniciar o Coordinator
+            // 1. Start the Coordinator
             new ProcessBuilder("java", "-cp", "bin", "Coordinator", String.valueOf(numMappers),
                     String.valueOf(numReducers))
                     .inheritIO()
                     .start();
 
-            Thread.sleep(1000); // Espera para os sockets abrirem
+            Thread.sleep(1000); // Wait for Coordinator to open sockets
 
-            // 2. Iniciar os Mappers
+            // 2. Start the Mappers
             for (int i = 0; i < numMappers; i++) {
                 new ProcessBuilder("java", "-cp", "bin", "Mapper")
                         .inheritIO()
                         .start();
             }
 
-            Thread.sleep(2000); // Espera os Mappers completarem
+            Thread.sleep(2000); // Wait for Mappers to finish
 
-            // 3. Iniciar os Reducers
+            // 3. Start the Reducers
             for (int i = 0; i < numReducers; i++) {
                 new ProcessBuilder("java", "-cp", "bin", "Reducer")
                         .inheritIO()
