@@ -4,20 +4,21 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class Coordinator {
+    private static final String FILE_PATH = "input.txt";
+
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
 
     public static void main(String[] args) {
-        if (args.length != 3) {
-            System.out.println("Usage: Coordinator <filepath> <numberOfMaps> <numberOfReduces>");
+        if (args.length != 2) {
+            System.out.println("Usage: Coordinator <numberOfMaps> <numberOfReduces>");
             return;
         }
 
-        String fileName = args[0];
-        int numberOfMaps = Integer.parseInt(args[1]);
-        int numberOfReduces = Integer.parseInt(args[2]);
+        int numberOfMaps = Integer.parseInt(args[0]);
+        int numberOfReduces = Integer.parseInt(args[1]);
 
-        File file = new File(fileName);
+        File file = new File(FILE_PATH);
         long fileSize = file.length();
         long chunkSize = fileSize / numberOfMaps;
 
@@ -39,7 +40,7 @@ public class Coordinator {
                 long startByte = i * chunkSize;
                 long endByte = (i == numberOfMaps - 1) ? fileSize : (i + 1) * chunkSize;
 
-                executor.execute(new MapperHandler(mapperSocket, fileName, startByte, endByte, partitionedData,
+                executor.execute(new MapperHandler(mapperSocket, FILE_PATH, startByte, endByte, partitionedData,
                         numberOfReduces, i));
             }
 
