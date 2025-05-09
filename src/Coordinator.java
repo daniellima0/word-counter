@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class Coordinator {
-    private static final String FILE_PATH = "input.txt";
+    private static final String FILE_PATH = "input/input1.txt";
 
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
