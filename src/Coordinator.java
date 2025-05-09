@@ -18,9 +18,33 @@ public class Coordinator {
         int numberOfMaps = Integer.parseInt(args[0]);
         int numberOfReduces = Integer.parseInt(args[1]);
 
-        File file = new File(FILE_PATH);
-        long fileSize = file.length();
-        long chunkSize = fileSize / numberOfMaps;
+        // Read entire file and tokenize by words
+        List<String> allWords = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_PATH))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] words = line.split("\\W+");
+                for (String word : words) {
+                    if (!word.isEmpty()) {
+                        allWords.add(word);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        // Split words evenly among mappers
+        int totalWords = allWords.size();
+        int chunkSize = (int) Math.ceil((double) totalWords / numberOfMaps);
+        List<List<String>> mapperChunks = new ArrayList<>();
+
+        for (int i = 0; i < numberOfMaps; i++) {
+            int startIdx = i * chunkSize;
+            int endIdx = Math.min(startIdx + chunkSize, totalWords);
+            mapperChunks.add(new ArrayList<>(allWords.subList(startIdx, endIdx)));
+        }
 
         // Partitioned data per reducer
         Map<Integer, List<String>> partitionedData = new ConcurrentHashMap<>();
@@ -37,11 +61,8 @@ public class Coordinator {
 
             for (int i = 0; i < numberOfMaps; i++) {
                 Socket mapperSocket = mapServerSocket.accept();
-                long startByte = i * chunkSize;
-                long endByte = (i == numberOfMaps - 1) ? fileSize : (i + 1) * chunkSize;
-
-                executor.execute(new MapperHandler(mapperSocket, FILE_PATH, startByte, endByte, partitionedData,
-                        numberOfReduces, i));
+                executor.execute(
+                        new MapperHandler(mapperSocket, mapperChunks.get(i), partitionedData, numberOfReduces, i));
             }
 
             executor.shutdown();
@@ -71,18 +92,15 @@ public class Coordinator {
 
     static class MapperHandler implements Runnable {
         private Socket socket;
-        private String fileName;
-        private long startByte, endByte;
+        private List<String> wordChunk;
         private Map<Integer, List<String>> partitionedData;
         private int numberOfReduces;
         private int mapperId;
 
-        public MapperHandler(Socket socket, String fileName, long startByte, long endByte,
+        public MapperHandler(Socket socket, List<String> wordChunk,
                 Map<Integer, List<String>> partitionedData, int numberOfReduces, int mapperId) {
             this.socket = socket;
-            this.fileName = fileName;
-            this.startByte = startByte;
-            this.endByte = endByte;
+            this.wordChunk = wordChunk;
             this.partitionedData = partitionedData;
             this.numberOfReduces = numberOfReduces;
             this.mapperId = mapperId;
@@ -92,18 +110,11 @@ public class Coordinator {
         public void run() {
             try (
                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    RandomAccessFile raf = new RandomAccessFile(fileName, "r")) {
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
                 System.out.println("Coordinator: Sending chunk to Mapper " + mapperId);
 
-                raf.seek(startByte);
-                long bytesSent = 0;
-                while (bytesSent < (endByte - startByte)) {
-                    String line = raf.readLine();
-                    if (line == null)
-                        break;
-                    out.println(line);
-                    bytesSent += line.getBytes().length;
+                for (String word : wordChunk) {
+                    out.println(word);
                 }
                 out.println("<<END>>");
 
@@ -120,7 +131,7 @@ public class Coordinator {
                     int reducerId = customHash(word, numberOfReduces);
                     partitionedData.get(reducerId).add(line);
 
-                    // 👇 Log mapper output
+                    // Log mapper output
                     System.out.println("Mapper " + mapperId + " emitted: " + line + " (to reducer " + reducerId + ")");
                 }
 
