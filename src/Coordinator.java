@@ -4,47 +4,52 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class Coordinator {
-    private static final String FILE_PATH = "../input/input1.txt";
+    private static final String INPUT_FOLDER = "../input/";
 
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
     private static final int RESULT_PORT = 6001;
 
     public static void main(String[] args) {
-        if (args.length != 2) {
-            System.out.println("Usage: Coordinator <numberOfMaps> <numberOfReduces>");
+        if (args.length != 1) {
+            System.out.println("Usage: Coordinator <numberOfReduces>");
             return;
         }
 
-        int numberOfMaps = Integer.parseInt(args[0]);
-        int numberOfReduces = Integer.parseInt(args[1]);
+        int numberOfReduces = Integer.parseInt(args[0]);
 
-        // Read entire file and tokenize by words
-        List<String> allWords = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(FILE_PATH))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] words = line.split("\\W+");
-                for (String word : words) {
-                    if (!word.isEmpty()) {
-                        allWords.add(word);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+        // Read all .txt files from the input folder
+        File folder = new File(INPUT_FOLDER);
+        File[] inputFiles = folder.listFiles((dir, name) -> name.endsWith(".txt"));
+
+        if (inputFiles == null || inputFiles.length == 0) {
+            System.out.println("No input files found in " + INPUT_FOLDER);
             return;
         }
 
-        // Split words evenly among mappers
-        int totalWords = allWords.size();
-        int chunkSize = (int) Math.ceil((double) totalWords / numberOfMaps);
+        int numberOfMaps = inputFiles.length;
+        System.out.println("Found " + numberOfMaps + " input files. Spawning " + numberOfMaps + " mappers.");
+
         List<List<String>> mapperChunks = new ArrayList<>();
 
-        for (int i = 0; i < numberOfMaps; i++) {
-            int startIdx = i * chunkSize;
-            int endIdx = Math.min(startIdx + chunkSize, totalWords);
-            mapperChunks.add(new ArrayList<>(allWords.subList(startIdx, endIdx)));
+        for (File file : inputFiles) {
+            List<String> words = new ArrayList<>();
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] tokens = line.split("\\W+");
+                    for (String word : tokens) {
+                        if (!word.isEmpty()) {
+                            words.add(word.toLowerCase());
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error reading file: " + file.getName());
+                e.printStackTrace();
+                return;
+            }
+            mapperChunks.add(words);
         }
 
         // Partitioned data per reducer
