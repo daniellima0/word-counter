@@ -1,1 +1,3 @@
-hello hello hello
+Hello world!
+This is a test file.
+Map Reduce is fun.

@@ -1,1 +1,3 @@
-there there there
+Map Reduce counts words.
+Words are counted using Map Reduce.
+Reduce is the second phase.

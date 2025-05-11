@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class Coordinator {
-    private static final String INPUT_FOLDER = "../input/";
+    private static final String INPUT_FOLDER = "input/";
 
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
@@ -123,7 +123,7 @@ public class Coordinator {
             }
 
             // Grava os resultados em um arquivo
-            File outputDir = new File("../output");
+            File outputDir = new File("output");
             if (!outputDir.exists()) {
                 outputDir.mkdir();
             }
