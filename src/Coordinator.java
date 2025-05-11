@@ -18,7 +18,7 @@ public class Coordinator {
 
         int numberOfReduces = Integer.parseInt(args[0]);
 
-        // Read all .txt files from the input folder
+        // Ler todos os arquivos .txt da pasta de entrada
         File folder = new File(INPUT_FOLDER);
         File[] inputFiles = folder.listFiles((dir, name) -> name.endsWith(".txt"));
 
@@ -32,6 +32,7 @@ public class Coordinator {
 
         List<List<String>> mapperChunks = new ArrayList<>();
 
+        // Prepara os chunks de palavras para os mappers
         for (File file : inputFiles) {
             List<String> words = new ArrayList<>();
             try (BufferedReader br = new BufferedReader(new FileReader(file))) {
@@ -52,7 +53,7 @@ public class Coordinator {
             mapperChunks.add(words);
         }
 
-        // Partitioned data per reducer
+        // Particiona os dados para os reducers
         Map<Integer, List<String>> partitionedData = new ConcurrentHashMap<>();
         for (int i = 0; i < numberOfReduces; i++) {
             partitionedData.put(i, Collections.synchronizedList(new ArrayList<>()));
@@ -66,6 +67,7 @@ public class Coordinator {
                 ServerSocket resultSocket = new ServerSocket(RESULT_PORT)) {
             System.out.println("Coordinator: Waiting for Mappers to connect...");
 
+            // Aceita as conexões dos Mappers e distribui os chunks
             for (int i = 0; i < numberOfMaps; i++) {
                 Socket mapperSocket = mapServerSocket.accept();
                 executor.execute(
@@ -75,13 +77,13 @@ public class Coordinator {
             executor.shutdown();
             executor.awaitTermination(5, TimeUnit.MINUTES);
 
-            // Send data to reducers
+            // Envia dados para os reducers
             for (int i = 0; i < numberOfReduces; i++) {
                 System.out.println("Coordinator: Waiting for Reducer " + i);
                 Socket reduceSocket = reduceServerSocket.accept();
                 PrintWriter out = new PrintWriter(reduceSocket.getOutputStream(), true);
 
-                out.println(i); // reducer ID
+                out.println(i); // ID do reducer
                 out.println(numberOfReduces);
 
                 for (String pair : partitionedData.get(i)) {
@@ -92,7 +94,7 @@ public class Coordinator {
                 reduceSocket.close();
             }
 
-            // Collect final results from reducers
+            // Coleta resultados finais dos reducers
             Map<String, Integer> finalResults = new HashMap<>();
             for (int i = 0; i < numberOfReduces; i++) {
                 Socket returnSocket = resultSocket.accept();
@@ -114,16 +116,16 @@ public class Coordinator {
                 returnSocket.close();
             }
 
-            // Print final consolidated result
+            // Exibe e grava o resultado final
             System.out.println("\nFinal Consolidated Word Count:");
             for (Map.Entry<String, Integer> entry : finalResults.entrySet()) {
                 System.out.println(entry.getKey() + ": " + entry.getValue());
             }
 
-            // Write the final results to a file (final_count.txt)
+            // Grava os resultados em um arquivo
             File outputDir = new File("../output");
             if (!outputDir.exists()) {
-                outputDir.mkdir(); // Create the output folder if it doesn't exist
+                outputDir.mkdir();
             }
 
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(outputDir, "final_count.txt")))) {
@@ -139,68 +141,5 @@ public class Coordinator {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-    }
-
-    static class MapperHandler implements Runnable {
-        private Socket socket;
-        private List<String> wordChunk;
-        private Map<Integer, List<String>> partitionedData;
-        private int numberOfReduces;
-        private int mapperId;
-
-        public MapperHandler(Socket socket, List<String> wordChunk,
-                Map<Integer, List<String>> partitionedData, int numberOfReduces, int mapperId) {
-            this.socket = socket;
-            this.wordChunk = wordChunk;
-            this.partitionedData = partitionedData;
-            this.numberOfReduces = numberOfReduces;
-            this.mapperId = mapperId;
-        }
-
-        @Override
-        public void run() {
-            try (
-                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-                System.out.println("Coordinator: Sending chunk to Mapper " + mapperId);
-
-                for (String word : wordChunk) {
-                    out.println(word);
-                }
-                out.println("<<END>>");
-
-                // Collect raw word:1 pairs and partition
-                String line;
-                while ((line = in.readLine()) != null) {
-                    if (line.trim().isEmpty())
-                        continue;
-                    String[] parts = line.split(":");
-                    if (parts.length != 2)
-                        continue;
-
-                    String word = parts[0];
-                    int reducerId = customHash(word, numberOfReduces);
-                    partitionedData.get(reducerId).add(line);
-
-                    // Log mapper output
-                    System.out.println("Mapper " + mapperId + " emitted: " + line + " (to reducer " + reducerId + ")");
-                }
-
-                socket.close();
-                System.out.println("Coordinator: Mapper " + mapperId + " completed");
-
-            } catch (IOException e) {
-                System.err.println("MapperHandler (Mapper " + mapperId + ") error: " + e.getMessage());
-            }
-        }
-
-    }
-
-    public static int customHash(String word, int numberOfReduces) {
-        int hash = 0;
-        for (int i = 0; i < word.length(); i++) {
-            hash = 31 * hash + word.charAt(i);
-        }
-        return Math.abs(hash % numberOfReduces);
     }
 }
