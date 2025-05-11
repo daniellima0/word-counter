@@ -4,10 +4,11 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class Coordinator {
-    private static final String FILE_PATH = "input/input1.txt";
+    private static final String FILE_PATH = "../input/input1.txt";
 
     private static final int MAP_PORT = 3001;
     private static final int REDUCE_PORT = 5001;
+    private static final int RESULT_PORT = 6001;
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -56,7 +57,8 @@ public class Coordinator {
 
         try (
                 ServerSocket mapServerSocket = new ServerSocket(MAP_PORT);
-                ServerSocket reduceServerSocket = new ServerSocket(REDUCE_PORT)) {
+                ServerSocket reduceServerSocket = new ServerSocket(REDUCE_PORT);
+                ServerSocket resultSocket = new ServerSocket(RESULT_PORT)) {
             System.out.println("Coordinator: Waiting for Mappers to connect...");
 
             for (int i = 0; i < numberOfMaps; i++) {
@@ -83,6 +85,34 @@ public class Coordinator {
 
                 out.println("<<END>>");
                 reduceSocket.close();
+            }
+
+            // Collect final results from reducers
+            Map<String, Integer> finalResults = new HashMap<>();
+            for (int i = 0; i < numberOfReduces; i++) {
+                Socket returnSocket = resultSocket.accept();
+                BufferedReader in = new BufferedReader(new InputStreamReader(returnSocket.getInputStream()));
+
+                String line;
+                while ((line = in.readLine()) != null) {
+                    if (line.equals("<<END>>"))
+                        break;
+                    String[] parts = line.split(":");
+                    if (parts.length != 2)
+                        continue;
+                    String word = parts[0];
+                    int count = Integer.parseInt(parts[1]);
+
+                    finalResults.put(word, finalResults.getOrDefault(word, 0) + count);
+                }
+
+                returnSocket.close();
+            }
+
+            // Print final consolidated result
+            System.out.println("\nFinal Consolidated Word Count:");
+            for (Map.Entry<String, Integer> entry : finalResults.entrySet()) {
+                System.out.println(entry.getKey() + ": " + entry.getValue());
             }
 
         } catch (IOException | InterruptedException e) {
@@ -142,7 +172,7 @@ public class Coordinator {
                 System.err.println("MapperHandler (Mapper " + mapperId + ") error: " + e.getMessage());
             }
         }
-    
+
     }
 
     public static int customHash(String word, int numberOfReduces) {

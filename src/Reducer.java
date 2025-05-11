@@ -5,11 +5,13 @@ import java.util.*;
 public class Reducer {
     public static void main(String[] args) {
         String coordinatorAddress = "localhost";
-        int port = 5001;
+        int reducePort = 5001;
+        int resultPort = 6001;
 
         try (
-                Socket socket = new Socket(coordinatorAddress, port);
+                Socket socket = new Socket(coordinatorAddress, reducePort);
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
             int reducerId = Integer.parseInt(in.readLine());
             int totalReducers = Integer.parseInt(in.readLine());
 
@@ -31,10 +33,21 @@ public class Reducer {
                 wordCounts.put(word, wordCounts.getOrDefault(word, 0) + count);
             }
 
-            System.out.println("Reducer " + reducerId + " final counts:");
+            // Print reducer's local result
+            System.out.println("Reducer " + reducerId + " local result:");
             for (Map.Entry<String, Integer> entry : wordCounts.entrySet()) {
                 System.out.println(entry.getKey() + ": " + entry.getValue());
             }
+
+            // Send final result back to coordinator
+            Socket returnSocket = new Socket(coordinatorAddress, resultPort);
+            PrintWriter out = new PrintWriter(returnSocket.getOutputStream(), true);
+            for (Map.Entry<String, Integer> entry : wordCounts.entrySet()) {
+                out.println(entry.getKey() + ":" + entry.getValue());
+            }
+            out.println("<<END>>");
+            out.close();
+            returnSocket.close();
 
         } catch (IOException e) {
             e.printStackTrace();
